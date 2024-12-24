@@ -23,6 +23,7 @@ String currentVersion = "1.0.0";
 void checkForOTAUpdate();
 String readVersionFromSPIFFS();
 void saveVersionToSPIFFS(String version);
+void printProgressBar(int progress);
 
 void setup()
 {
@@ -70,13 +71,27 @@ void setup()
 void loop()
 {
   digitalWrite(32, HIGH); // Turn the LED on
-  delay(100);            // Wait for 1 second
+  delay(500);             // Wait for 1 second
   digitalWrite(32, LOW);  // Turn the LED off
-  delay(100);
+  delay(500);
+}
 
-  // Periodically check for OTA updates
-  // checkForOTAUpdate();
-  // delay(15000);  // Check every 15 seconds
+void printProgressBar(int progress)
+{
+  const int barWidth = 50; // Width of the progress bar
+  String bar = "";
+
+  // Calculate the filled width of the progress bar
+  int filledWidth = (progress * barWidth) / 100;
+
+  for (int i = 0; i < barWidth; i++)
+  {
+    bar += (i < filledWidth) ? '=' : ' ';
+  }
+
+  // Display the progress bar
+  Serial.printf("\rDownload Progress: [%s] %3d%%", bar.c_str(), progress);
+  Serial.flush(); // Ensure output is sent immediately
 }
 
 void checkForOTAUpdate()
@@ -102,73 +117,58 @@ void checkForOTAUpdate()
     Serial.println("Size of currentVersion):: " + String(i1));
     Serial.println("Size of serverVersion) :: " + String(i2));
 
-    // for (int i = 0; i < currentVersion.length(); i++) {
-    //   char c = currentVersion[i];  // Get each character from the string
-    //   Serial.print("Character ");
-    //   Serial.print(i);
-    //   Serial.print(": ");
-    //   Serial.println(c);  // Print the character
-    // }
-    // for (int i = 0; i < serverVersion.length(); i++) {
-    //   char c = serverVersion[i];  // Get each character from the string
-    //   Serial.print("Character ");
-    //   Serial.print(i);
-    //   Serial.print(": ");
-    //   Serial.println(c);  // Print the character
-    // }
-
     if (currentVersion != serverVersion)
     {
-
       // Write the firmware version to SPIFFS
       saveVersionToSPIFFS(serverVersion); // Example version
+      Serial.println("New version available! Starting update...");
 
-      Serial.println("New version available! Updating...");
-
-      // Perform the OTA update
       HTTPClient http;
-      http.begin(firmwareURL); // Start the request for the firmware
+      http.begin(firmwareURL);
       int httpCode = http.GET();
 
       if (httpCode == HTTP_CODE_OK)
       {
         int contentLength = http.getSize();
+        WiFiClient *stream = http.getStreamPtr();
 
         if (contentLength > 0)
         {
-          bool canBegin = Update.begin(contentLength);
-
-          if (canBegin)
+          if (Update.begin(contentLength))
           {
-            Serial.println("Starting OTA update...");
-            WiFiClient &client = http.getStream();
-
+            Serial.println("Beginning OTA update...");
             size_t written = 0;
-            int lastProgress = -1; // Initialize the last progress value
+            int lastProgress = -1;
 
             while (written < contentLength)
             {
-              size_t chunkSize = Update.writeStream(client);
-              written += chunkSize;
+              // Read data from the HTTP stream
+              uint8_t buffer[128];
+              size_t bytesRead = stream->readBytes(buffer, sizeof(buffer));
 
-              int progress = (written * 100) / contentLength;
-              delay(300);
-
-              if (progress != lastProgress)
+              if (bytesRead > 0)
               {
-                Serial.printf("Download Progress: %d%%\n", progress);
-                lastProgress = progress;
+                // Write data to the update stream
+                written += Update.write(buffer, bytesRead);
+
+                // Calculate progress
+                int progress = (written * 100) / contentLength;
+
+                // Update progress bar if progress changes
+                if (progress != lastProgress)
+                {
+                  printProgressBar(progress);
+                  lastProgress = progress;
+                }
+              }
+              else
+              {
+                Serial.println("\nError: No data received. Update aborted.");
+                break;
               }
             }
 
-            if (written == contentLength)
-            {
-              Serial.println("OTA update complete!");
-            }
-            else
-            {
-              Serial.printf("OTA update failed. Written: %d/%d bytes\n", written, contentLength);
-            }
+            Serial.println(); // Move to the next line after the progress bar
 
             if (Update.end())
             {
@@ -194,7 +194,7 @@ void checkForOTAUpdate()
         }
         else
         {
-          Serial.println("Content length is invalid or zero.");
+          Serial.println("Invalid content length or zero.");
         }
       }
       else
