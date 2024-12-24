@@ -13,9 +13,9 @@ const char *ssid = "Nadim";
 const char *password = "zzzzxxxx";
 
 // Firmware URL
-const char *firmwareURL = "http://192.168.60.192:3000/firmware.bin";
+const char *firmwareURL = "http://192.168.120.192:3000/firmware.bin";
 // Version file URL
-const char *versionURL = "http://192.168.60.192:3000/version.txt"; // Replace with your server version file URL
+const char *versionURL = "http://192.168.120.192:3000/version.txt"; // Replace with your server version file URL
 
 // String updatedVersion = "";
 String currentVersion = "1.0.0";
@@ -71,9 +71,9 @@ void setup()
 void loop()
 {
   digitalWrite(32, HIGH); // Turn the LED on
-  delay(500);             // Wait for 1 second
+  delay(1000);             // Wait for 1 second
   digitalWrite(32, LOW);  // Turn the LED off
-  delay(500);
+  delay(1000);
 }
 
 void printProgressBar(int progress)
