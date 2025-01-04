@@ -6,7 +6,7 @@ const app = express();
 const PORT = 3000;
 
 // Path to serve the static folder
-const folderToServe = path.join('D:', 'Nadim Personal', 'OTA_UPDATE', 'ota-server');
+const folderToServe = path.join('E:', 'NADIM', 'OTA_UPDATE', 'ota-server');
 
 // Serve the folder as static content
 app.use(express.static(folderToServe));
